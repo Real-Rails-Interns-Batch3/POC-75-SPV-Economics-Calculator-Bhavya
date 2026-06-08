@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPV Capital Infrastructure Ledger</title>
+    <style>
+        body {
+            background-color: #030712 !important;
+            color: #cbd5e1 !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            font-size: 13px;
+        }
+        .app-layout {
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+            width: 100%;
+        }
+        aside {
+            width: 30%;
+            background-color: #0b1329;
+            border-right: 1px solid #1e293b;
+            padding: 24px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow-y: auto;
+        }
+        main {
+            width: 70%;
+            padding: 32px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .rail-badge {
+            display: inline-block;
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            margin-bottom: 8px;
+        }
+        h1 { color: #ffffff; font-size: 18px; margin: 4px 0 16px 0; font-weight: 700; letter-spacing: -0.02em; }
+        .preset-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        
+        .preset-card {
+            background-color: rgba(15, 23, 42, 0.6);
+            border: 1px solid #1e293b;
+            padding: 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .preset-card:hover {
+            border-color: #3b82f6;
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        .preset-card.active {
+            border-color: #10b981;
+            background-color: rgba(16, 185, 129, 0.08);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+        }
+        .preset-header-row { display: flex; justify-content: space-between; align-items: center; }
+        .preset-title { color: #ffffff; font-weight: bold; font-size: 12px; }
+        .preset-metric-badge { font-family: monospace; font-size: 11px; font-weight: bold; color: #10b981; }
+
+        .sliders-section {
+            margin-top: 10px;
+            padding-top: 20px;
+            border-top: 1px solid #1e293b;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .slider-group {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid #1e293b;
+            padding: 14px;
+            border-radius: 10px;
+        }
+        .slider-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+        .slider-title { color: #94a3b8; font-weight: 500; }
+        .slider-val { color: #3b82f6; font-family: monospace; font-weight: bold; font-size: 12px; }
+        input[type="range"] {
+            width: 100%;
+            height: 5px;
+            background: #1e293b;
+            border-radius: 4px;
+            cursor: pointer;
+            outline: none;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .context-box {
+            background-color: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(30, 41, 59, 0.6);
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 12px;
+        }
+        .context-header { color: #f1f5f9; font-weight: bold; margin: 0 0 4px 0; display: flex; align-items: center; gap: 6px; font-size: 11px; }
+        .context-text { color: #94a3b8; font-size: 11px; margin: 0; line-height: 1.4; }
+        
+        .panel-header { border-bottom: 1px solid #1e293b; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+        .panel-title { color: #ffffff; margin: 0; font-size: 18px; font-weight: 700; }
+        .panel-subtitle { color: #94a3b8; margin: 4px 0 0 0; font-size: 12px; }
+        .live-status { font-family: monospace; color: #64748b; background: #0f172a; padding: 6px 12px; border-radius: 6px; border: 1px solid #1e293b; font-size: 11px; }
+        
+        .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        .kpi-tile { background-color: #0b1329; border: 1px solid #1e293b; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; }
+        .kpi-meta { color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+        .kpi-num { font-size: 24px; font-weight: 900; color: #ffffff; font-family: monospace; margin-top: 8px; }
+        
+        .view-matrix { display: grid; grid-template-columns: 7fr 5fr; gap: 24px; align-items: stretch; }
+        
+        /* Fixed Chart Canvas Window Layout */
+        .chart-frame { background-color: rgba(11, 19, 41, 0.2); border: 1px solid #1e293b; padding: 24px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 350px; box-sizing: border-box; }
+        .chart-meta { font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; align-self: flex-start; margin-bottom: 20px; }
+        .chart-wrapper-box { display: flex; flex-direction: column; align-items: center; width: 100%; }
+        
+        /* Native Vector Legend Map CSS */
+        .native-legend { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 260px; }
+        .legend-item { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #94a3b8; }
+        .legend-left { display: flex; align-items: center; gap: 8px; }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .legend-val { font-family: monospace; color: #f1f5f9; font-weight: bold; }
+
+        .ledger-frame { background-color: #0b1329; border: 1px solid #1e293b; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+        .ledger-top { background: #0f172a; padding: 14px 16px; border-bottom: 1px solid #1e293b; font-size: 11px; font-weight: bold; color: #cbd5e1; text-transform: uppercase; }
+        .ledger-line { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid rgba(30, 41, 59, 0.5); font-family: monospace; font-size: 11px; }
+        .ledger-line:last-child { border-bottom: none; }
+        .ledger-txt { font-family: system-ui, sans-serif; color: #94a3b8; }
+        .ledger-end { padding: 14px; background-color: rgba(15, 23, 42, 0.2); font-size: 10px; color: #475569; text-align: center; border-top: 1px solid #1e293b; }
+
+        @media (max-width: 1024px) {
+            .app-layout { flex-direction: column; }
+            aside { width: 100%; border-right: none; border-bottom: 1px solid #1e293b; }
+            main { width: 100%; }
+            .kpi-row { grid-template-columns: 1fr; }
+            .view-matrix { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <aside>
+            <div>
+                <div style="border-bottom: 1px solid #1e293b; padding-bottom: 10px; margin-bottom: 14px;">
+                    <span class="rail-badge">Capital Allocation Desk</span>
+                    <h1>Private Asset Ledgers</h1>
+                </div>
+
+                <div class="preset-container">
+                    <div class="preset-card active" id="deal-0" onclick="switchDealProfile(0)">
+                        <div class="preset-header-row">
+                            <span class="preset-title">SpaceX Tier-1 Secondary</span>
+                            <span class="preset-metric-badge" id="m-0">0.00x</span>
+                        </div>
+                    </div>
+                    <div class="preset-card" id="deal-1" onclick="switchDealProfile(1)">
+                        <div class="preset-header-row">
+                            <span class="preset-title">Stripe Enterprise Core</span>
+                            <span class="preset-metric-badge" id="m-1">0.00x</span>
+                        </div>
+                    </div>
+                    <div class="preset-card" id="deal-2" onclick="switchDealProfile(2)">
+                        <div class="preset-header-row">
+                            <span class="preset-title">Anthropic Seed Allocation</span>
+                            <span class="preset-metric-badge" id="m-2">0.00x</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sliders-section">
+                    <div class="slider-group">
+                        <div class="slider-label-row">
+                            <span class="slider-title">Fundraising Goal ($)</span>
+                            <span class="slider-val" id="lbl-raised">$0</span>
+                        </div>
+                        <input type="range" id="slide-raised" min="100000" max="10000000" step="100000">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label-row">
+                            <span class="slider-title">Annual Fee %</span>
+                            <span class="slider-val" id="lbl-fee">0.00%</span>
+                        </div>
+                        <input type="range" id="slide-fee" min="0" max="5" step="0.25">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label-row">
+                            <span class="slider-title">Performance Carry %</span>
+                            <span class="slider-val" id="lbl-carry">0%</span>
+                        </div>
+                        <input type="range" id="slide-carry" min="0" max="35" step="5">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label-row">
+                            <span class="slider-title">Exit Growth Multiple (x)</span>
+                            <span class="slider-val" id="lbl-multiple">0.00x</span>
+                        </div>
+                        <input type="range" id="slide-multiple" min="1" max="10" step="0.25">
+                    </div>
+                    <input type="hidden" id="slide-years" value="5">
+                </div>
+            </div>
+
+            <div>
+                <div class="context-box">
+                    <p class="context-header"><span>💡</span> Why this matters</p>
+                    <p class="context-text">Asset management fees systematically reduce active investment sizing. This ledger tracks how programmatic overhead impacts structural return vectors.</p>
+                </div>
+                <div class="context-box">
+                    <p class="context-header"><span>🛡️</span> Who controls the rail</p>
+                    <p class="context-text">The Syndicate General Partner handles regulatory deployment compliance. In return, they take fixed management fees and carry incentives.</p>
+                </div>
+            </div>
+        </aside>
+
+        <main>
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Asset Liquidation Waterfall</h2>
+                    <p class="panel-subtitle">Real-time accounting ledger and yield optimization analytics.</p>
+                </div>
+                <span class="live-status">Infrastructure: <span style="color: #10b981; font-weight: bold;">Sync Active</span></span>
+            </div>
+
+            <div class="kpi-row">
+                <div class="kpi-tile">
+                    <span class="kpi-meta">Gross Portfolio Exit Proceeds</span>
+                    <span class="kpi-num" id="kpi-exit">$0</span>
+                </div>
+                <div class="kpi-tile" style="border-top: 2px solid #10b981;">
+                    <span class="kpi-meta">Net Cash Distributed to Investors (LPs)</span>
+                    <span class="kpi-num" id="kpi-investor" style="color: #10b981;">$0</span>
+                </div>
+                <div class="kpi-tile" style="border-top: 2px solid #06b6d4;">
+                    <span class="kpi-meta">Net Deal Return Multiple</span>
+                    <span class="kpi-num" id="kpi-multiple" style="color: #06b6d4;">0.00x</span>
+                </div>
+            </div>
+
+            <div class="view-matrix">
+                <div class="chart-frame">
+                    <span class="chart-meta">Asset Yield Capital Distribution Split</span>
+                    <div class="chart-wrapper-box">
+                        <canvas id="spvNativeCanvas" width="180" height="180"></canvas>
+                        
+                        <div class="native-legend">
+                            <div class="legend-item">
+                                <div class="legend-left"><span class="legend-dot" style="background: #475569;"></span>Initial Principal Payback</div>
+                                <span class="legend-val" id="leg-principal">$0</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-left"><span class="legend-dot" style="background: #10b981;"></span>Net Investor Profits</div>
+                                <span class="legend-val" id="leg-profits">$0</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-left"><span class="legend-dot" style="background: #06b6d4;"></span>Manager Fees + Carry</div>
+                                <span class="legend-val" id="leg-mgr">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ledger-frame">
+                    <div>
+                        <div class="ledger-top">Waterfall Distribution Accounting</div>
+                        <div>
+                            <div class="ledger-line"><span class="ledger-txt">Effective Capital Deployed</span><span style="color: #f1f5f9; font-weight: bold;" id="lbl-deployed">$0</span></div>
+                            <div class="ledger-line"><span class="ledger-txt">Initial Principal Payback</span><span style="color: #f1f5f9; font-weight: bold;" id="lbl-principal">$0</span></div>
+                            <div class="ledger-line"><span class="ledger-txt">Net Investor Profits</span><span style="color: #10b981; font-weight: bold;" id="lbl-profits">$0</span></div>
+                            <div class="ledger-line"><span class="ledger-txt">Manager Fees + Carry</span><span style="color: #06b6d4; font-weight: bold;" id="lbl-mgr-total">$0</span></div>
+                        </div>
+                    </div>
+                    <div class="ledger-end">Calculations processed sequentially via pipeline execution.</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const formatUSD = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+
+        const DEALS_SCHEMA = [
+            { total_raised: 5000000, mgmt_fee_pct: 1.50, years: 5, carry_pct: 20, exit_multiple: 3.50 },
+            { total_raised: 2500000, mgmt_fee_pct: 2.00, years: 5, carry_pct: 20, exit_multiple: 2.75 },
+            { total_raised: 1000000, mgmt_fee_pct: 2.50, years: 5, carry_pct: 25, exit_multiple: 4.00 }
+        ];
+
+        function switchDealProfile(index) {
+            const profile = DEALS_SCHEMA[index];
+            for(let i=0; i<DEALS_SCHEMA.length; i++) {
+                document.getElementById(`deal-${i}`).classList.remove('active');
+            }
+            document.getElementById(`deal-${index}`).classList.add('active');
+            
+            document.getElementById('slide-raised').value = profile.total_raised;
+            document.getElementById('slide-fee').value = profile.mgmt_fee_pct;
+            document.getElementById('slide-carry').value = profile.carry_pct;
+            document.getElementById('slide-multiple').value = profile.exit_multiple;
+
+            executeLedgerHandshake();
+        }
+
+        async function executeLedgerHandshake() {
+            const totalRaised = parseFloat(document.getElementById('slide-raised').value);
+            const mgmtFeePct = parseFloat(document.getElementById('slide-fee').value);
+            const years = parseInt(document.getElementById('slide-years').value);
+            const carryPct = parseFloat(document.getElementById('slide-carry').value);
+            const exitMultiple = parseFloat(document.getElementById('slide-multiple').value);
+
+            document.getElementById('lbl-raised').innerText = formatUSD(totalRaised);
+            document.getElementById('lbl-fee').innerText = `${mgmtFeePct.toFixed(2)}%`;
+            document.getElementById('lbl-carry').innerText = `${carryPct}%`;
+            document.getElementById('lbl-multiple').innerText = `${exitMultiple.toFixed(2)}x`;
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/calculate-spv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        total_raised: totalRaised,
+                        mgmt_fee_pct: mgmtFeePct,
+                        years: years,
+                        carry_pct: carryPct,
+                        exit_multiple: exitMultiple
+                    })
+                });
+
+                const metrics = await response.json();
+
+                document.getElementById('kpi-exit').innerText = formatUSD(metrics.gross_exit_proceeds);
+                document.getElementById('kpi-investor').innerText = formatUSD(metrics.net_investor_payout);
+                document.getElementById('kpi-multiple').innerText = `${metrics.net_investor_multiple.toFixed(2)}x`;
+
+                document.getElementById('lbl-deployed').innerText = formatUSD(metrics.deployed_capital);
+                document.getElementById('lbl-principal').innerText = formatUSD(metrics.initial_principal_payback);
+                document.getElementById('lbl-profits').innerText = formatUSD(metrics.net_investor_profits);
+                document.getElementById('lbl-mgr-total').innerText = formatUSD(metrics.manager_fees_plus_carry);
+
+                // Update text fields inside chart legends
+                document.getElementById('leg-principal').innerText = formatUSD(metrics.initial_principal_payback);
+                document.getElementById('leg-profits').innerText = formatUSD(metrics.net_investor_profits);
+                document.getElementById('leg-mgr').innerText = formatUSD(metrics.manager_fees_plus_carry);
+
+                drawNativeDonut(metrics);
+            } catch (err) {
+                console.error("Pipeline failure:", err);
+            }
+        }
+
+        // Native canvas rendering script - requires 0 network connections
+        function drawNativeDonut(m) {
+            const canvas = document.getElementById('spvNativeCanvas');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const total = m.initial_principal_payback + m.net_investor_profits + m.manager_fees_plus_carry;
+            if (total === 0) return;
+
+            const slices = [
+                { value: m.initial_principal_payback, color: '#475569' },
+                { value: m.net_investor_profits, color: '#10b981' },
+                { value: m.manager_fees_plus_carry, color: '#06b6d4' }
+            ];
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const outerRadius = Math.min(centerX, centerY) - 4;
+            const innerRadius = outerRadius * 0.76;
+
+            let startAngle = -Math.PI / 2;
+
+            slices.forEach(slice => {
+                if(slice.value <= 0) return;
+                const sliceAngle = (slice.value / total) * (2 * Math.PI);
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, outerRadius, startAngle, startAngle + sliceAngle);
+                ctx.arc(centerX, centerY, innerRadius, startAngle + sliceAngle, startAngle, true);
+                ctx.closePath();
+                ctx.fillStyle = slice.color;
+                ctx.fill();
+
+                startAngle += sliceAngle;
+            });
+        }
+
+        async function runInitialCalculations() {
+            for (let i = 0; i < DEALS_SCHEMA.length; i++) {
+                try {
+                    const response = await fetch('http://127.0.0.1:8000/api/calculate-spv', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(DEALS_SCHEMA[i])
+                    });
+                    const data = await response.json();
+                    document.getElementById(`m-${i}`).innerText = `${data.net_investor_multiple.toFixed(2)}x ROI`;
+                } catch(e) {
+                    document.getElementById(`m-${i}`).innerText = "---";
+                }
+            }
+            switchDealProfile(0);
+        }
+
+        ['slide-raised', 'slide-fee', 'slide-carry', 'slide-multiple'].forEach(id => {
+            document.getElementById(id).addEventListener('input', executeLedgerHandshake);
+        });
+
+        window.addEventListener('DOMContentLoaded', runInitialCalculations);
+    </script>
+</body>
+</html>

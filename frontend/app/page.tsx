@@ -2,248 +2,288 @@
 
 import React, { useState } from 'react';
 
-export default function Page() {
-  const [activeAsset, setActiveAsset] = useState("Stripe Enterprise Core");
-  const [fundraisingGoal, setFundraisingGoal] = useState(2500000);
-  const [annualFee, setAnnualFee] = useState(2.00);
-  const [performanceCarry, setPerformanceCarry] = useState(20);
-  const [exitMultiple, setExitMultiple] = useState(2.75);
+// ========================================================
+// 🔌 REUSABLE DATA ADAPTER (Normalizes raw data feeds)
+// ========================================================
+const adaptSPVData = (rawAsset: any) => {
+  const cap = Number(rawAsset.totalCapital.replace(/[^0-9.-]+/g, ""));
+  const feeRate = Number(rawAsset.mgmtFee.replace(/[^0-9.-]+/g, "")) / 100;
+  
+  const lifetimeFees = cap * feeRate * 5; 
+  const netInvested = cap - lifetimeFees;
+  const simulatedExitValue = cap * 3.5; // Simulated 3.5x return cascade
+  const grossProfit = simulatedExitValue - cap;
+  const carryFees = grossProfit * (Number(rawAsset.carry.replace(/[^0-9.-]+/g, "")) / 100);
+  const totalLpPayout = netInvested + (grossProfit - carryFees);
 
-  const assetLedger: Record<string, { source: string; baseGoal: number; defaultFee: number; defaultCarry: number; defaultMultiple: number; roi: string }> = {
-    "SpaceX Tier-1 Secondary": { source: "SEC EDGAR Form D (SYNTHETIC LABELS)", baseGoal: 3500000, defaultFee: 1.75, defaultCarry: 15, defaultMultiple: 2.79, roi: "2.79x ROI" },
-    "Stripe Enterprise Core": { source: "SEC EDGAR Form D (SYNTHETIC LABELS)", baseGoal: 2500000, defaultFee: 2.00, defaultCarry: 20, defaultMultiple: 2.75, roi: "2.18x ROI" },
-    "Anthropic Seed Allocation": { source: "SEC EDGAR Form D (SYNTHETIC LABELS)", baseGoal: 1500000, defaultFee: 2.50, defaultCarry: 25, defaultMultiple: 2.88, roi: "2.88x ROI" }
+  return {
+    ...rawAsset,
+    numericCapital: cap,
+    lifetimeFees: `$${(lifetimeFees / 1000000).toFixed(2)}M`,
+    netInvested: `$${(netInvested / 1000000).toFixed(2)}M`,
+    simulatedExit: `$${(simulatedExitValue / 1000000).toFixed(2)}M`,
+    gpCarryPayout: `$${(carryFees / 1000000).toFixed(2)}M`,
+    lpTotalPayout: `$${(totalLpPayout / 1000000).toFixed(2)}M`
   };
+};
 
-  const handleAssetHandshake = (assetName: string) => {
-    setActiveAsset(assetName);
-    const targetData = assetLedger[assetName];
-    setFundraisingGoal(targetData.baseGoal);
-    setAnnualFee(targetData.defaultFee);
-    setPerformanceCarry(targetData.defaultCarry);
-    setExitMultiple(targetData.defaultMultiple);
-  };
+const RAW_SPV_DATABASE = [
+  { id: "spv-1", name: "Anthropic Seed Allocation", totalCapital: "$10,000,000", mgmtFee: "2.0%", carry: "20%", edgarCik: "0001993210", secForm: "Form D (Securities Offering)", status: "EXEMPTED_POOL", controller: "General Partner (GP) / Asset Allocator" },
+  { id: "spv-2", name: "SpaceX Secondary Growth", totalCapital: "$25,000,000", mgmtFee: "1.5%", carry: "20%", edgarCik: "0001186164", secForm: "Form D Amendment", status: "QUALIFIED_PURCHASER", controller: "Lead Institutional Syndicate Manager" },
+  { id: "spv-3", name: "Scale AI Late Stage Vehicle", totalCapital: "$15,000,000", mgmtFee: "2.0%", carry: "25%", edgarCik: "0001854215", secForm: "Form D Initial", status: "EXEMPTED_POOL", controller: "Venture Principal Ledger Controller" }
+];
 
-  // Mathematical Calculation Engine Cascades
-  const grossProceeds = fundraisingGoal * exitMultiple;
-  const totalFeesAndCarry = grossProceeds * ((annualFee / 100) + (performanceCarry / 100));
-  const netToInvestors = grossProceeds - totalFeesAndCarry;
-  const dealMultiple = (netToInvestors / fundraisingGoal).toFixed(2);
-  const investorProfits = Math.max(0, netToInvestors - fundraisingGoal);
+export default function SPVEconomicsCalculator() {
+  const [selectedAssetId, setSelectedAssetId] = useState("spv-1");
+  const [comparisonAssetId, setComparisonAssetId] = useState("spv-2"); 
+  const [filterExemption, setFilterExemption] = useState("ALL");
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
-  // FEATURE: Programmatic Break-Even Multiple calculation
-  const totalFeeSlices = (annualFee / 100) + (performanceCarry / 100);
-  const breakEvenMultiple = totalFeeSlices >= 1 ? "N/A" : (1 / (1 - totalFeeSlices)).toFixed(2);
+  const adaptedDatabase = RAW_SPV_DATABASE.map(asset => adaptSPVData(asset));
+  
+  const currentAsset = adaptedDatabase.find(a => a.id === selectedAssetId) || adaptedDatabase[0];
+  const compareAsset = adaptedDatabase.find(a => a.id === comparisonAssetId) || adaptedDatabase[1];
 
-  // FEATURE: Export Memo Summary Action Code Block
-  const exportMemoSummary = () => {
-    const briefText = `=== SPV INVESTMENT ECONOMIC MEMO ===\nAsset Identification: ${activeAsset}\nData Integrity Ingest: ${assetLedger[activeAsset].source}\nFundraising Target: $${fundraisingGoal.toLocaleString()}\nGross Exit Evaluation: $${grossProceeds.toLocaleString()}\nNet Distributed to LPs: $${netToInvestors.toLocaleString()}\nNet Exit Multiple Yield: ${dealMultiple}x\nBreak-Even Asset Threshold: ${breakEvenMultiple}x\n===================================`;
-    const element = document.createElement("a");
-    const fileBlob = new Blob([briefText], { type: 'text/plain' });
-    element.href = URL.createObjectURL(fileBlob);
-    element.download = `${activeAsset.toLowerCase().replace(/ /g, "_")}_investment_memo.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-  };
+  const filteredAssets = adaptedDatabase.filter(item => 
+    filterExemption === "ALL" || item.status === filterExemption
+  );
 
   return (
-    <div className="w-full min-h-screen bg-[#030712] text-slate-300 font-mono p-4 md:p-8 block overflow-y-visible">
-      <div className="max-w-6xl mx-auto w-full flex flex-col gap-8 pb-24">
+    <div className="w-full min-h-screen bg-[#030712] text-slate-300 font-mono flex overflow-x-hidden">
+      
+      {/* ======================================================== */}
+      {/* 📐 LEFT SIDEBAR PANEL (30% SPLIT VIEW)                   */}
+      {/* ======================================================== */}
+      <aside className="w-[30%] min-w-[340px] max-w-[420px] border-r border-slate-900 bg-[#070b18] p-6 flex flex-col gap-6 h-screen sticky top-0 overflow-y-auto">
         
-        {/* ACTION CONTROL HEADER BAR */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-900 pb-4 gap-4">
-          <div>
-            <div className="text-[10px] text-purple-400 font-bold tracking-widest uppercase">// SEC EDGAR ANALYTICAL TERMINAL</div>
-            <h1 className="text-xl font-black text-white tracking-wider uppercase mt-0.5">SPV Economics Calculator</h1>
-          </div>
-          <div className="flex gap-3">
-            {/* FEATURE: Downloadable Sample Data linking to local FastAPI server */}
-            <a 
-              href="http://localhost:8000/api/v1/download-sample"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] font-bold bg-slate-900 border border-slate-800 hover:border-purple-500 text-slate-300 px-3 py-2 rounded transition-all cursor-pointer"
-            >
-              📥 Download Sample Data
-            </a>
-            {/* FEATURE: Export Memo Summary */}
-            <button 
-              onClick={exportMemoSummary}
-              className="text-[11px] font-bold bg-purple-950/40 border border-purple-500 text-white px-3 py-2 rounded hover:bg-purple-900/60 transition-all cursor-pointer"
-            >
-              📋 Export Memo Summary
-            </button>
-          </div>
-        </header>
-
-        {/* 70/30 DATA ARCHITECTURE LAYOUT CONTAINER */}
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-8 items-start">
-          
-          {/* 70% WORKSPACE REGION (7 Columns out of 10) */}
-          <main className="lg:col-span-7 flex flex-col gap-8 w-full">
-            
-            <div className="bg-[#090d1a]/40 border border-slate-900 rounded-lg p-6 shadow-xl">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className="text-lg font-bold text-white">Asset Liquidation Waterfall</h2>
-                  <p className="text-[11px] text-slate-500 font-sans mt-0.5">Audit: <span className="text-purple-400 font-mono font-bold">{assetLedger[activeAsset].source}</span></p>
-                </div>
-
-                {/* FEATURE: Break-Even View Component with Integrated Micro-Tooltip */}
-                <div className="text-right bg-slate-950 px-3 py-1.5 rounded border border-slate-900 relative group cursor-help">
-                  <div className="text-[9px] text-slate-500 font-black uppercase tracking-wider">Break-Even Multiple</div>
-                  <div className="text-sm font-black text-amber-400">{breakEvenMultiple}x</div>
-                  
-                  {/* Tooltip Content layer */}
-                  <span className="absolute bottom-full right-0 mb-2 w-56 p-2 bg-slate-900 border border-slate-800 text-[10px] text-slate-400 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl font-sans normal-case leading-normal z-50">
-                    The gross growth multiple the underlying startup must achieve to cover management fees and return exactly 100% of capital back to LPs.
-                  </span>
-                </div>
-              </div>
-
-              {/* KPI TELEMETRY GRID WITH HOVER TOOLTIPS */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                <div className="bg-[#050811] border border-slate-900 rounded p-4 relative group cursor-help">
-                  <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Gross Portfolio Exit</div>
-                  <div className="text-xl font-black text-white mt-1">${grossProceeds.toLocaleString()}</div>
-                  <span className="absolute bottom-full left-0 mb-2 w-48 p-2 bg-slate-900 border border-slate-800 text-[10px] text-slate-400 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none font-sans z-50 normal-case">
-                    Total acquisition payout value before carry/fee deductions.
-                  </span>
-                </div>
-                
-                <div className="bg-[#050811] border border-emerald-950 rounded p-4 relative group cursor-help">
-                  <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Net Cash Distributed LPs</div>
-                  <div className="text-xl font-black text-emerald-400 mt-1">${netToInvestors.toLocaleString()}</div>
-                  <span className="absolute bottom-full left-0 mb-2 w-48 p-2 bg-slate-900 border border-slate-800 text-[10px] text-slate-400 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none font-sans z-50 normal-case">
-                    Net capital systematically wired back to investors.
-                  </span>
-                </div>
-
-                <div className="bg-[#050811] border border-cyan-950 rounded p-4 relative group cursor-help">
-                  <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Net Deal Return Multiple</div>
-                  <div className="text-xl font-black text-cyan-400 mt-1">{dealMultiple}x</div>
-                  <span className="absolute bottom-full left-0 mb-2 w-48 p-2 bg-slate-900 border border-slate-800 text-[10px] text-slate-400 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none font-sans z-50 normal-case">
-                    Final clear ROI multiplier received by Limited Partners.
-                  </span>
-                </div>
-              </div>
-
-              {/* HORIZONTAL RENDERING APPORTIONMENT GRAPH SPLIT */}
-              <div className="p-4 bg-[#050811] border border-slate-900 rounded flex flex-col justify-center min-h-[120px]">
-                <div className="text-[10px] text-slate-500 font-bold uppercase mb-4">// ASSET YIELD CAPITAL DISTRIBUTION SPLIT [SYNTHETIC DATA LABELS]</div>
-                <div className="w-full bg-slate-950 h-5 rounded overflow-hidden flex border border-slate-900">
-                  <div style={{ width: `${Math.min(100, (fundraisingGoal / grossProceeds) * 100)}%` }} className="h-full bg-slate-700" />
-                  <div style={{ width: `${Math.max(0, (investorProfits / grossProceeds) * 100)}%` }} className="h-full bg-emerald-500" />
-                  <div style={{ width: `${Math.min(100, (totalFeesAndCarry / grossProceeds) * 100)}%` }} className="h-full bg-cyan-500" />
-                </div>
-                <div className="flex flex-wrap gap-4 mt-4 text-[9px] font-bold uppercase tracking-wider">
-                  <span className="flex items-center gap-1.5 text-slate-400"><span className="w-2 h-2 bg-slate-700 rounded-full" /> Principal Return</span>
-                  <span className="flex items-center gap-1.5 text-emerald-400"><span className="w-2 h-2 bg-emerald-500 rounded-full" /> Net LP Profits</span>
-                  <span className="flex items-center gap-1.5 text-cyan-400"><span className="w-2 h-2 bg-cyan-500 rounded-full" /> Fees & Carry Pool</span>
-                </div>
-              </div>
-            </div>
-
-            {/* LEDGER DATA LIST SUMMARY */}
-            <div className="bg-[#090d1a]/40 border border-slate-900 rounded-lg p-6 shadow-xl">
-              <div className="text-[10px] text-purple-500 font-bold tracking-widest uppercase mb-4">// WATERFALL ACCOUNTING DISTRIBUTION LEDGER</div>
-              <div className="divide-y divide-slate-900 text-xs font-bold space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-normal">Effective Capital Deployed (Synthetic)</span>
-                  <span className="text-white">${fundraisingGoal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between pt-3">
-                  <span className="text-slate-500 font-normal">Initial Principal Payback Pool</span>
-                  <span className="text-white">${fundraisingGoal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between pt-3">
-                  <span className="text-slate-500 font-normal">Net Profit Allocation Pool</span>
-                  <span className="text-emerald-400">${investorProfits.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between pt-3">
-                  <span className="text-slate-500 font-normal">Manager Aggregate Carry Overhead</span>
-                  <span className="text-cyan-400">${totalFeesAndCarry.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          </main>
-
-          {/* 30% CONTROL SIDEBAR (3 Columns out of 10) */}
-          <aside className="lg:col-span-3 flex flex-col gap-6 w-full">
-            <div className="bg-[#090d1a]/40 border border-slate-900 rounded-lg p-4 shadow-xl flex flex-col gap-2">
-              <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Private Asset Ledgers (SEC)</div>
-              {Object.keys(assetLedger).map((assetName) => (
-                <button
-                  key={assetName}
-                  onClick={() => handleAssetHandshake(assetName)}
-                  className={`w-full p-3 text-left rounded border transition-all text-xs font-bold flex justify-between items-center cursor-pointer ${
-                    activeAsset === assetName
-                      ? 'bg-purple-950/20 text-white border-purple-500'
-                      : 'bg-[#050811] text-slate-400 border-slate-900/60 hover:border-slate-800'
-                  }`}
-                >
-                  <span className="truncate pr-2">{assetName}</span>
-                  <span className="text-emerald-400 font-sans text-[11px] shrink-0">{assetLedger[assetName].roi}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* TUNING PARAMETER SLIDERS */}
-            <div className="bg-[#090d1a]/40 border border-slate-900 rounded-lg p-4 shadow-xl space-y-5">
-              <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">// VARIABLE TUNING NODES</div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-slate-400">Fundraising Goal</span>
-                  <span className="text-purple-400">${fundraisingGoal.toLocaleString()}</span>
-                </div>
-                <input 
-                  type="range" min="1000000" max="10000000" step="100000"
-                  value={fundraisingGoal} onChange={(e) => setFundraisingGoal(Number(e.target.value))}
-                  className="w-full h-1 bg-slate-950 rounded appearance-none cursor-pointer accent-purple-500"
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-slate-400">Annual Fee %</span>
-                  <span className="text-purple-400">{annualFee.toFixed(2)}%</span>
-                </div>
-                <input 
-                  type="range" min="0.5" max="5.0" step="0.25"
-                  value={annualFee} onChange={(e) => setAnnualFee(Number(e.target.value))}
-                  className="w-full h-1 bg-slate-950 rounded appearance-none cursor-pointer accent-purple-500"
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-slate-400">Performance Carry %</span>
-                  <span className="text-purple-400">{performanceCarry}%</span>
-                </div>
-                <input 
-                  type="range" min="5" max="40" step="5"
-                  value={performanceCarry} onChange={(e) => setPerformanceCarry(Number(e.target.value))}
-                  className="w-full h-1 bg-slate-950 rounded appearance-none cursor-pointer accent-purple-500"
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-slate-400">Exit Multiple</span>
-                  <span className="text-purple-400">{exitMultiple.toFixed(2)}x</span>
-                </div>
-                <input 
-                  type="range" min="1.0" max="5.0" step="0.05"
-                  value={exitMultiple} onChange={(e) => setExitMultiple(Number(e.target.value))}
-                  className="w-full h-1 bg-slate-950 rounded appearance-none cursor-pointer accent-purple-500"
-                />
-              </div>
-            </div>
-          </aside>
+        <div>
+          <div className="text-[10px] text-cyan-400 font-bold tracking-widest uppercase">// VENTURE INTELLIGENCE CORE</div>
+          <h1 className="text-lg font-black tracking-wider text-white uppercase mt-1">SPV Economics Engine</h1>
         </div>
 
-        <footer className="text-center text-[10px] text-slate-700 uppercase tracking-widest pt-8">
-          // PIPELINE VERIFIED AND UNLOCKED //
+        {/* GOVERNANCE CONTEXT */}
+        <div className="w-full bg-[#090d1a]/80 border border-slate-900 rounded-lg p-4">
+          <div className="text-[10px] text-amber-500 font-bold tracking-widest uppercase mb-2">🛡️ GOVERNANCE & CONTROL OVERVIEW</div>
+          <div className="text-xs space-y-2">
+            <div>
+              <span className="text-slate-500 block text-[10px]">RAIL CONTROLLER:</span>
+              <span className="text-white font-sans font-bold">{currentAsset.controller}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[10px]">WHY THIS DATA MATTERS:</span>
+              <p className="text-slate-400 font-sans text-[11px] leading-relaxed">
+                Governs capital call thresholds, enforces calculation alignment during distribution cascades, and provides immutable accounting for compliance tracking.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* FILTERS */}
+        <div className="w-full bg-[#090d1a]/60 border border-slate-900 rounded-lg p-4">
+          <div className="text-[10px] text-cyan-400 font-bold tracking-widest uppercase mb-3">⚡ EXEMPTION CRITERIA FILTERS</div>
+          <select 
+            value={filterExemption}
+            onChange={(e) => setFilterExemption(e.target.value)}
+            className="w-full bg-[#050811] border border-slate-900 rounded p-2.5 text-xs text-white outline-none cursor-pointer"
+          >
+            <option value="ALL">SHOW ALL SPV ASSET NODES</option>
+            <option value="EXEMPTED_POOL">SEC EXEMPTED POOLS</option>
+            <option value="QUALIFIED_PURCHASER">SEC QUALIFIED PURCHASERS</option>
+          </select>
+        </div>
+
+        {/* LIST TILES */}
+        <div className="w-full bg-[#090d1a]/60 border border-slate-900 rounded-lg p-4">
+          <div className="text-[10px] text-cyan-400 font-bold tracking-widest uppercase mb-3">📁 ACTIVE ASSET WATERFALL NODES</div>
+          <div className="flex flex-col gap-2">
+            {filteredAssets.map((asset) => (
+              <div
+                key={asset.id}
+                onClick={() => setSelectedAssetId(asset.id)}
+                className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                  selectedAssetId === asset.id
+                    ? 'bg-cyan-950/20 border-cyan-500 text-cyan-400'
+                    : 'bg-[#0b1122] border-slate-900 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <div className="text-xs font-bold font-sans">{asset.name}</div>
+                <div className="text-[10px] opacity-60 font-mono mt-1">{asset.totalCapital} Capital Node</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
+
+      {/* ======================================================== */}
+      {/* 📐 MAIN DASHBOARD (70% PANEL VIEW) - LONG SCROLL SCAPE   */}
+      {/* ======================================================== */}
+      <main className="w-[70%] flex-1 p-6 md:p-8 flex flex-col gap-8 bg-[#030712] overflow-y-visible h-auto min-h-screen pb-40">
+        
+        {/* SEC EDGAR HEADER PANEL */}
+        <section className="w-full bg-gradient-to-r from-slate-950 to-[#090d1a] border border-slate-900 rounded-lg p-5 flex items-center justify-between shadow-2xl">
+          <div className="space-y-1">
+            <div className="text-[10px] text-cyan-400 font-black tracking-widest uppercase flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+              LIVE SEC EDGAR REAL-TIME PIPELINE INTERFACE
+            </div>
+            <h2 className="text-base font-bold text-white font-sans">{currentAsset.name} SEC Ledger Match</h2>
+          </div>
+          <div className="bg-[#050811] border border-slate-900 p-3 rounded text-right space-y-1 font-mono">
+            <div className="text-[10px] text-slate-400">CIK INDEX ID: <span className="text-yellow-400 font-bold">{currentAsset.edgarCik}</span></div>
+            <div className="text-[9px] text-slate-500 uppercase">{currentAsset.secForm} STATUS</div>
+          </div>
+        </section>
+
+        {/* CORE STAT CARDS WITH TOOLTIPS */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+          <div className="bg-[#090d1a]/60 border border-slate-900 rounded-lg p-5">
+            <span className="text-[10px] text-slate-500 block uppercase">Gross Vehicle Capital</span>
+            <span className="text-xl font-black text-white block mt-2">{currentAsset.totalCapital}</span>
+            <div className="text-[9px] text-slate-600 mt-2">Total committed asset footprint.</div>
+          </div>
+
+          <div 
+            className="bg-[#090d1a]/60 border border-slate-900 rounded-lg p-5 relative cursor-help"
+            onMouseEnter={() => setActiveTooltip('mgmt-fee')}
+            onMouseLeave={() => setActiveTooltip(null)}
+          >
+            <span className="text-[10px] text-slate-500 flex items-center gap-1.5 uppercase">Management Fee Impact ⓘ</span>
+            <span className="text-xl font-black text-amber-500 block mt-2">{currentAsset.mgmtFee} <span className="text-xs text-slate-500">p.a.</span></span>
+            <div className="text-[9px] text-slate-600 mt-2">Total Operational Budget: <span className="text-slate-400 font-bold">{currentAsset.lifetimeFees}</span></div>
+            
+            {activeTooltip === 'mgmt-fee' && (
+              <div className="absolute left-0 right-0 -top-24 bg-slate-950 border border-cyan-500 p-3 rounded shadow-2xl text-[11px] text-slate-300 font-sans z-50 leading-relaxed">
+                <span className="text-cyan-400 font-bold block mb-1">💡 Cumulative Management Fees Offset</span>
+                Tracks the total fund capital deducted systematically across operational life phases to sustain portfolio engineering workflows.
+              </div>
+            )}
+          </div>
+
+          <div 
+            className="bg-[#090d1a]/60 border border-slate-900 rounded-lg p-5 relative cursor-help"
+            onMouseEnter={() => setActiveTooltip('carry')}
+            onMouseLeave={() => setActiveTooltip(null)}
+          >
+            <span className="text-[10px] text-slate-500 flex items-center gap-1.5 uppercase">Carried Interest Vector ⓘ</span>
+            <span className="text-xl font-black text-emerald-400 block mt-2">{currentAsset.carry} Ratio</span>
+            <div className="text-[9px] text-slate-600 mt-2">Net Deploy Base: <span className="text-slate-400 font-bold">{currentAsset.netInvested}</span></div>
+            
+            {activeTooltip === 'carry' && (
+              <div className="absolute left-0 right-0 -top-24 bg-slate-950 border border-cyan-500 p-3 rounded shadow-2xl text-[11px] text-slate-300 font-sans z-50 leading-relaxed">
+                <span className="text-cyan-400 font-bold block mb-1">💡 Carried Interest Performance Incentive</span>
+                The performance fee sharing ratio split triggered exclusively once initial deal deployment thresholds hurdle capital restitution protocols.
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* COMPARISON MODULE */}
+        <section className="w-full bg-[#090d1a]/60 border border-slate-900 rounded-lg p-6 shadow-xl">
+          <div className="text-[11px] text-blue-500 font-bold tracking-widest uppercase mb-4">
+            ⚖️ SIDE-BY-SIDE SPV ENTITY COMPARISON MATRIX
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-[10px] text-slate-500 font-bold uppercase mb-2">Entity Module Focus (A)</label>
+              <select 
+                value={selectedAssetId} 
+                onChange={(e) => setSelectedAssetId(e.target.value)}
+                className="w-full bg-[#050811] border border-slate-900 rounded p-3 text-xs text-white font-bold outline-none cursor-pointer"
+              >
+                {adaptedDatabase.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-500 font-bold uppercase mb-2">Comparison Entity Target (B)</label>
+              <select 
+                value={comparisonAssetId} 
+                onChange={(e) => setComparisonAssetId(e.target.value)}
+                className="w-full bg-[#050811] border border-slate-900 rounded p-3 text-xs text-cyan-400 font-bold outline-none cursor-pointer"
+              >
+                {adaptedDatabase.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-6 border border-slate-900 rounded-lg overflow-hidden text-xs bg-[#050811]">
+            <div className="grid grid-cols-3 bg-[#090d1a] p-3 border-b border-slate-900 text-slate-500 font-bold uppercase">
+              <span>METRIC ARCHITECTURE</span>
+              <span>ENTITY FOCUS (A)</span>
+              <span className="text-right">COMPARE TARGET (B)</span>
+            </div>
+            <div className="divide-y divide-slate-900/60 font-bold">
+              <div className="grid grid-cols-3 p-3.5"><span className="text-slate-400">Asset Title</span><span className="text-white font-sans">{currentAsset.name}</span><span className="text-cyan-400 font-sans text-right">{compareAsset.name}</span></div>
+              <div className="grid grid-cols-3 p-3.5"><span className="text-slate-400">Gross Vault Commitment</span><span className="text-white">{currentAsset.totalCapital}</span><span className="text-cyan-400 text-right">{compareAsset.totalCapital}</span></div>
+              <div className="grid grid-cols-3 p-3.5"><span className="text-slate-400">Total Operational Fees</span><span className="text-amber-500">{currentAsset.lifetimeFees}</span><span className="text-amber-500 text-right">{compareAsset.lifetimeFees}</span></div>
+              <div className="grid grid-cols-3 p-3.5"><span className="text-slate-400">Net Invested Venture Yield</span><span className="text-emerald-400">{currentAsset.netInvested}</span><span className="text-emerald-400 text-right">{compareAsset.netInvested}</span></div>
+              <div className="grid grid-cols-3 p-3.5"><span className="text-slate-400">SEC EDGAR Catalog Key</span><span className="text-slate-300">CIK {currentAsset.edgarCik}</span><span className="text-cyan-400 text-right">CIK {compareAsset.edgarCik}</span></div>
+            </div>
+          </div>
+        </section>
+
+        {/* ======================================================== */}
+        {/* 🚀 NEW SECTION 1: EXIT WATERFALL LIQUIDITY CASCADE REQ    */}
+        {/* ======================================================== */}
+        <section className="w-full bg-[#090d1a]/60 border border-slate-900 rounded-lg p-6 shadow-xl">
+          <div className="text-[11px] text-emerald-500 font-bold tracking-widest uppercase mb-2">
+            📊 ASSET WATERFALL EXIT DISTRIBUTION CALCULATOR (SIMULATED 3.5x MATRIX)
+          </div>
+          <p className="text-slate-500 text-[11px] mb-4">Calculates asset layout payouts dynamically using data adapter hooks.</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+            <div className="bg-[#050811] p-4 rounded border border-slate-900">
+              <span className="text-[10px] text-slate-500 uppercase block">Projected Capital Exit Value</span>
+              <span className="text-lg font-bold text-white block mt-1">{currentAsset.simulatedExit}</span>
+            </div>
+            <div className="bg-[#050811] p-4 rounded border border-slate-900">
+              <span className="text-[10px] text-slate-500 uppercase block">GP Performance Carry Payout</span>
+              <span className="text-lg font-bold text-amber-500 block mt-1">{currentAsset.gpCarryPayout}</span>
+            </div>
+            <div className="bg-[#050811] p-4 rounded border border-slate-900">
+              <span className="text-[10px] text-slate-500 uppercase block">Net LP Disbursed Liquidity</span>
+              <span className="text-lg font-bold text-emerald-400 block mt-1">{currentAsset.lpTotalPayout}</span>
+            </div>
+          </div>
+        </section>
+
+        {/* ======================================================== */}
+        {/* 🚀 NEW SECTION 2: REGULATORY AUDIT HISTORY DATASTREAM   */}
+        {/* ======================================================== */}
+        <section className="w-full bg-[#090d1a]/60 border border-slate-900 rounded-lg p-6 shadow-xl">
+          <div className="text-[11px] text-yellow-500 font-bold tracking-widest uppercase mb-4">
+            📜 LIVE SEC COMPLIANCE AUDIT DISCOVERY TRAIL
+          </div>
+          <div className="space-y-3 text-xs">
+            <div className="p-3 bg-[#050811] rounded border border-slate-900/60 flex justify-between items-center">
+              <div>
+                <span className="text-cyan-400 font-bold block">[STAGE 03] Notice of Exempt Offering of Securities</span>
+                <span className="text-slate-500 text-[10px]">EDGAR Filing Verified via Secure Gateway Pipeline Node</span>
+              </div>
+              <span className="bg-emerald-950/40 text-emerald-400 text-[10px] px-2.5 py-1 rounded border border-emerald-900 uppercase tracking-widest font-bold">SUCCESS</span>
+            </div>
+            <div className="p-3 bg-[#050811] rounded border border-slate-900/60 flex justify-between items-center">
+              <div>
+                <span className="text-slate-400 font-bold block">[STAGE 02] Form D Threshold Clearance Check</span>
+                <span className="text-slate-500 text-[10px]">Verification of Accredited Pools matching index CIK {currentAsset.edgarCik}</span>
+              </div>
+              <span className="bg-emerald-950/40 text-emerald-400 text-[10px] px-2.5 py-1 rounded border border-emerald-900 uppercase tracking-widest font-bold">CLEARED</span>
+            </div>
+            <div className="p-3 bg-[#050811] rounded border border-slate-900/60 flex justify-between items-center">
+              <div>
+                <span className="text-slate-400 font-bold block">[STAGE 01] General Partner Execution Authorization</span>
+                <span className="text-slate-500 text-[10px]">Sign-off logged: {currentAsset.controller}</span>
+              </div>
+              <span className="bg-emerald-950/40 text-emerald-400 text-[10px] px-2.5 py-1 rounded border border-emerald-900 uppercase tracking-widest font-bold">APPROVED</span>
+            </div>
+          </div>
+        </section>
+
+        <footer className="text-center text-[10px] text-slate-700 uppercase tracking-widest pt-6">
+          // SPV ECONOMICS LEDGER ENGINE MODULE INITIALIZED SUCCESSFULLY //
         </footer>
-      </div>
+      </main>
+
     </div>
   );
 }
