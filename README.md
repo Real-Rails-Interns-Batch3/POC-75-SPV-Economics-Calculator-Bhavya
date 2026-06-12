@@ -1,32 +1,36 @@
-# SPV Economics Calculator (POC-2)
+# SPV Economics Calculator & Ledger Portal (POC-75)
 
-A production-style single-deal vehicle economics and fee outcomes engine built for the Real Rails Intelligence Library. It features a responsive dashboard designed for emerging managers, builders, and allocators to simulate capital formation waterfalls.
+A production-grade single-deal vehicle economics, break-even analysis, and regulatory telemetry matrix built for the Real Rails Intelligence Library. It features an advanced asynchronous architectural bridge syncing a Next.js user interface with a high-performance Python FastAPI calculation engine.
 
-## ??? Tech Stack & Architecture
-- **Frontend Framework:** React, Next.js, TypeScript, Tailwind CSS
-- **Design System:** Custom 70/30 split view matrix layout
-- **Calculations Engine:** Programmatic waterfall ledger and asset yield capital distribution mapping
+---
 
-## ?? Project Configuration
-- **Background Palette:** High-contrast ultra-dark canvas (#030712)
-- **Handshake Mechanism:** Inter-component telemetry sync where selecting a private asset ledger node in the 30% sidebar instantly updates metrics and distribution tables across the 70% viewport panel.
-- **Scroll Alignment:** Seamless continuous vertical mouse-wheel runway without height restrictions or frozen layout viewport overlays.
+## 📐 Tech Stack & Architecture
+- **Frontend Layer:** Next.js 14, React, TypeScript, Tailwind CSS
+- **Backend Service Layer:** Python, FastAPI, Uvicorn ASGI Server
+- **Data Isolation Standard:** Independent `mock-data` envelope package utilizing localized JSON schema structures.
+- **Design System:** Custom high-contrast, ultra-dark analytics workspace (#030712) oriented around a balanced 70:30 layout viewport partition.
 
-## ?? Local Installation
+---
 
-1. Navigate to the frontend directory:
-   \\\ash
-   cd frontend
-   \\\
+## ⚡ Core Compliance Features Implemented
 
-2. Install the necessary node modules:
-   \\\ash
-   npm install
-   \\\
+- **Isolated Synthetic Data Package:** Zero hardcoded data arrays within logic blocks. All records are housed inside an independent, structured JSON schema package with explicit fields definitions, data dictionaries, and designated runtime edge cases.
+- **Dynamic Data Adapters:** Programmatic frontend utility functions that intercept raw network JSON payloads, parsing string metrics into live math assets instantly.
+- **System Governance Rail Trackers:** High-visibility contextual blocks identifying the exact asset rail controller authority and operational parameters.
+- **SEC EDGAR Pipeline Sync:** Real-time data pipeline tracking module logging active Central Index Key (CIK) IDs and filing exemptions.
+- **Interactive Tooltips & Evaluation Matrix:** Hoverable definitions detailing operational drag alongside side-by-side comparative dropdown selectors.
+- **Payback & Break-Even Analytics:** Operational calculation modules tracking lifetime management fee drag against projected yield horizons.
+- **Export & Download Actions:** Direct local triggers to stream downloadable synthetic CSV files and generate automated text summaries on demand.
 
-3. Run the local development instance:
-   \\\ash
-   npm run dev
-   \\\
+---
 
-Open [http://localhost:3000](http://localhost:3000) inside your web browser to test the interactive metrics simulation dashboard.
+## 🚀 Local Installation & Execution
+
+Follow these steps sequentially to launch both service runtimes locally on your machine:
+
+### 🐍 1. Initialize and Start the FastAPI Backend Engine
+Open your project terminal at the root directory level and execute the following commands to spin up your local server instance on port `8000`:
+
+```bash
+# Explicitly initialize the Python server routing through the backend directory asset structure
+python -m uvicorn main:app --reload --port 8000 --app-dir backend
