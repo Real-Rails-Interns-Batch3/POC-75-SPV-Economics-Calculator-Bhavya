@@ -2,8 +2,6 @@
 
 ## 📝 2. The Required Validation Documents
 
-To complete your submission like a professional repository, you need to add these two files to your root project folder:
-
 ### Create file: `UAT_CHECKLIST.md`
 ```markdown
 # User Acceptance Testing (UAT) Checklist - POC-75
