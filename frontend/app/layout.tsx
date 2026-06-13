@@ -1,17 +1,19 @@
-import React from 'react';
-import './globals.css';
+import type { Metadata } from "next";
+import "./globals.css";
 
-export const metadata = {
-  title: 'SPV Economics Calculator',
-  description: 'Single-deal vehicle economics and fee outcomes',
+export const metadata: Metadata = {
+  title: "SPV Economics Calculator - Real Rails Intelligence Terminal",
+  description: "Production-style single-deal vehicle economics and fee outcomes engine.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="en" className="h-full scroll-smooth">
-      <body className="min-h-full bg-[#030712] text-slate-300 antialiased overflow-y-auto m-0 p-0">
-        {children}
-      </body>
+    <html lang="en">
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
