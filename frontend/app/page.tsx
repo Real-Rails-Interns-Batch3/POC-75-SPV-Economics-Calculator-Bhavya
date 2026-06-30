@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from "recharts";
 
 interface AssetProfile {
   source: string;
@@ -10,6 +11,9 @@ interface AssetProfile {
   exitMultiple: number;
   description: string;
 }
+
+// 🟢 Requirement: Decouple hardcoded endpoints using environment variables
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function SPVCalculatorDashboard() {
   const [secData, setSecData] = useState<Record<string, AssetProfile>>({
@@ -30,7 +34,8 @@ export default function SPVCalculatorDashboard() {
   const [exitMultiple, setExitMultiple] = useState<number>(2.75);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/v1/sec-feed")
+    // Dynamically reaching backend channel securely
+    fetch(`${API_BASE_URL}/api/v1/sec-feed`)
       .then((res) => res.json())
       .then((data) => {
         setSecData(data);
@@ -59,18 +64,26 @@ export default function SPVCalculatorDashboard() {
   const netDealReturnMultiple = netCashDistributedLPs / fundraisingGoal;
   const breakEvenMultiple = parseFloat((fundraisingGoal / netCapitalDeployed).toFixed(2));
 
+  // Generate responsive chart tracking points dynamically for Recharts
+  const generatedChartData = [
+    { name: "Deployed", value: netCapitalDeployed },
+    { name: "Principal Base", value: fundraisingGoal },
+    { name: "LP Distro Yield", value: netCashDistributedLPs },
+    { name: "Gross Exit", value: grossPortfolioExit },
+  ];
+
   const handleExportMemo = () => {
     const textContext = `
 =====================================================
 REAL RAILS CAPITAL FORMATION WATERFALL BRIEFING MEMO
 =====================================================
-Asset Entity Target: ${selectedAsset}
+Asset Target Entity: ${selectedAsset}
 Ingestion Feed Source: SEC EDGAR Form D (SYNTHETIC LABELS)
 -----------------------------------------------------
-Structural Underwriting Vector Summary:
+Underwriting Configuration Vector Summary:
 - Implemented Target Goal: $${fundraisingGoal.toLocaleString()}
-- Configured Base Asset Management Fees: ${annualFee.toFixed(2)}%
-- Target Carried Interest Overhead Allocation: ${carryPercent}%
+- Configured Management Fees: ${annualFee.toFixed(2)}%
+- Target Carried Interest Allocation: ${carryPercent}%
 - Target Exit Performance Multiple: ${exitMultiple.toFixed(2)}x
 -----------------------------------------------------
 Evaluated Deal Allocation Metrics Summary:
@@ -102,14 +115,12 @@ Evaluated Deal Allocation Metrics Summary:
         </div>
         <div className="flex gap-4">
           <a 
-            href="http://localhost:8000/api/v1/download-sample"
+            href={`${API_BASE_URL}/api/v1/download-sample`}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 font-semibold text-xs transition duration-200 flex items-center"
           >
             📥 Download Sample Data
           </a>
-          {/* Suppressing browser autofill attributes error */}
           <button 
-            suppressHydrationWarning
             onClick={handleExportMemo}
             className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs rounded border border-purple-400/20 transition duration-200"
           >
@@ -129,6 +140,7 @@ Evaluated Deal Allocation Metrics Summary:
                 </p>
               </div>
               
+              {/* Tooltip implementation */}
               <div 
                 className="bg-slate-950 px-4 py-2 rounded-lg border border-amber-500/30 text-right cursor-help relative"
                 onMouseEnter={() => setHoveredTooltip("breakeven")}
@@ -144,33 +156,30 @@ Evaluated Deal Allocation Metrics Summary:
               </div>
             </div>
 
+            {/* 📊 Requirement: Recharts Analytics View integration */}
+            <div className="mb-6 bg-slate-950/60 p-4 rounded-lg border border-slate-800">
+              <span className="text-[10px] font-mono tracking-widest text-slate-400 block mb-4">// LIQUIDATION SCALE VISUALIZATION (RECHARTS)</span>
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={generatedChartData}>
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} />
+                    <Tooltip cursor={{ fill: '#1e293b', opacity: 0.2 }} contentStyle={{ backgroundColor: '#020617', borderColor: '#334155', borderRadius: '6px' }} />
+                    <Bar dataKey="value" fill="#9333ea" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div 
-                className="bg-slate-950/80 p-4 rounded-lg border border-slate-800 cursor-help relative"
-                onMouseEnter={() => setHoveredTooltip("grossExit")}
-                onMouseLeave={() => setHoveredTooltip(null)}
-              >
+              <div className="bg-slate-950/80 p-4 rounded-lg border border-slate-800">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest block">Gross Portfolio Exit</span>
                 <span className="text-2xl font-black text-white font-mono block mt-1">${grossPortfolioExit.toLocaleString()}</span>
-                {hoveredTooltip === "grossExit" && (
-                  <div className="absolute left-0 top-16 z-50 w-64 p-3 bg-slate-950 text-slate-300 text-xs rounded-lg border border-purple-500 shadow-xl leading-relaxed">
-                    Total valuation cash scale generated upon core secondary asset liquidation before split triggers.
-                  </div>
-                )}
               </div>
 
-              <div 
-                className="bg-slate-950/80 p-4 rounded-lg border border-slate-800 cursor-help relative"
-                onMouseEnter={() => setHoveredTooltip("netLp")}
-                onMouseLeave={() => setHoveredTooltip(null)}
-              >
+              <div className="bg-slate-950/80 p-4 rounded-lg border border-slate-800">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest block">Net Cash Distributed LPs</span>
                 <span className="text-2xl font-black text-emerald-400 font-mono block mt-1">${netCashDistributedLPs.toLocaleString()}</span>
-                {hoveredTooltip === "netLp" && (
-                  <div className="absolute left-0 top-16 z-50 w-64 p-3 bg-slate-950 text-slate-300 text-xs rounded-lg border border-purple-500 shadow-xl leading-relaxed">
-                    Actual bottom-line yield capital returned back to investors after subtracting manager carry allocations.
-                  </div>
-                )}
               </div>
 
               <div className="bg-slate-950/80 p-4 rounded-lg border border-slate-800">
@@ -178,61 +187,24 @@ Evaluated Deal Allocation Metrics Summary:
                 <span className="text-2xl font-black text-sky-400 font-mono block mt-1">{netDealReturnMultiple.toFixed(2)}x</span>
               </div>
             </div>
-
-            <div className="mt-8">
-              <p className="text-xs font-bold text-slate-400 mb-2 font-mono tracking-wider">// ASSET YIELD CAPITAL DISTRIBUTION SPLIT [SYNTHETIC DATA LABELS]</p>
-              <div className="h-4 w-full bg-slate-950 rounded-full overflow-hidden flex border border-slate-800">
-                <div className="h-full bg-slate-700" style={{ width: `${Math.min(100, (fundraisingGoal / grossPortfolioExit) * 100)}%` }}></div>
-                <div className="h-full bg-emerald-500" style={{ width: `${Math.max(0, ((netCashDistributedLPs - fundraisingGoal) / grossPortfolioExit) * 100)}%` }}></div>
-                <div className="h-full bg-sky-500" style={{ width: `${Math.max(0, (managerAggregateCarry / grossPortfolioExit) * 100)}%` }}></div>
-              </div>
-              <div className="flex gap-4 mt-3 text-[10px] font-mono text-slate-400">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-slate-700 rounded-full"></span> PRINCIPAL RETURN</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-emerald-500 rounded-full"></span> NET LP PROFITS</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-sky-500 rounded-full"></span> FEES & CARRY POOL</span>
-              </div>
-            </div>
           </div>
 
-          <div className="bg-slate-900/60 p-6 rounded-xl border border-slate-800">
-            <p className="text-xs font-mono font-bold tracking-widest text-purple-400 mb-4">// WATERFALL ACCOUNTING DISTRIBUTION LEDGER</p>
-            <div className="space-y-3 font-mono text-sm">
-              <div className="flex justify-between py-2 border-b border-slate-800/60">
-                <span className="text-slate-400">Effective Capital Deployed (Synthetic)</span>
-                <span className="text-white font-bold">${netCapitalDeployed.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between py-2 border-b border-slate-800/60">
-                <span className="text-slate-400">Initial Principal Payback Pool</span>
-                <span className="text-white font-bold">${fundraisingGoal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between py-2 border-b border-slate-800/60">
-                <span className="text-slate-400">Net Profit Allocation Pool</span>
-                <span className="text-emerald-400 font-bold">${totalNetProfit.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between py-2">
-                <span className="text-slate-400">Manager Aggregate Carry Overhead</span>
-                <span className="text-sky-400 font-bold">${managerAggregateCarry.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-          
+          {/* Descriptive contextual documentation blocks */}
           <div className="p-4 bg-purple-950/20 rounded-xl border border-purple-500/20 text-xs text-slate-300 leading-relaxed space-y-2">
             <p>
-              <strong>Who controls this rail panel?</strong> This visual panel is managed entirely by the emerging vehicle manager or angel syndicate lead to audit structural returns before closing allocations.
+              <strong>Who controls this rail panel?</strong> This visual terminal is managed entirely by the emerging vehicle manager or angel syndicate lead to audit investment yield health profiles.
             </p>
             <p>
-              <strong>Why this matters:</strong> Setting precise carry profiles and understanding data lineage from official pipelines ensures the regulatory alignment of private asset placements while preventing profit model bleed.
+              <strong>Why this matters:</strong> Setting precise carry models and verifying clean tracking lines directly against SEC reporting metrics safeguards regulatory structural setups while avoiding performance model translation failure.
             </p>
           </div>
         </section>
 
+        {/* Control side track for variables tuning */}
         <section className="lg:col-span-3 space-y-6">
           <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-            <span className="text-[10px] font-mono tracking-widest text-slate-400 block mb-2">PRIVATE ASSET LEDGERS (SEC)</span>
-            
-            {/* Suppressing browser autofill attributes on search input */}
+            <span className="text-[10px] font-mono tracking-widest text-slate-400 block mb-2">PRIVATE ASSET ENTITIES (SEC)</span>
             <input 
-              suppressHydrationWarning
               type="text"
               placeholder="🔍 Filter ledger nodes..."
               value={filterQuery}
@@ -243,7 +215,6 @@ Evaluated Deal Allocation Metrics Summary:
             <div className="space-y-2">
               {filteredAssetKeys.map((key) => (
                 <button
-                  suppressHydrationWarning
                   key={key}
                   onClick={() => triggerHandshake(key, secData[key])}
                   className={`w-full text-left p-3 rounded text-xs transition duration-150 font-mono flex justify-between items-center ${
